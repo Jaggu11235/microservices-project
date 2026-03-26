@@ -35,7 +35,7 @@ public class ProductController {
         return productService.saveProduct(product);
     }
 
-    @PatchMapping("/{id}")
+    @PutMapping("/{id}")
     public Product updateQuantity(@PathVariable Long id, @RequestParam Integer quantity) {
         return productService.updateQuantity(id, quantity);
     }
