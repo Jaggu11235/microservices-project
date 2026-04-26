@@ -1,0 +1,159 @@
+networks:
+  microservices-net:
+    driver: bridge
+
+volumes:
+  esdata:
+  api-gateway-logs:
+  eurekaserver-logs:
+
+services:
+
+  # ── Eureka Server ──────────────────────────────────────────────
+  eurekaserver:
+    build: ./eurekaserver
+    container_name: eurekaserver
+    ports:
+      - "8761:8761"
+    networks:
+      - microservices-net
+    volumes:
+      - eurekaserver-logs:/var/log/eurekaserver
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ── API Gateway ────────────────────────────────────────────────
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      eurekaserver:
+        condition: service_started
+    networks:
+      - microservices-net
+    volumes:
+      - api-gateway-logs:/var/log/api-gateway
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eurekaserver:8761/eureka/
+
+  # ── User Service ───────────────────────────────────────────────
+  user-service:
+    build: ./user-service
+    container_name: user-service
+    ports:
+      - "8081:8081"
+    depends_on:
+      eurekaserver:
+        condition: service_started
+    networks:
+      - microservices-net
+    volumes:
+      - C:/Users/USER/Desktop/Logs:/logs   # ✅ single shared logs folder
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eurekaserver:8761/eureka/
+
+  # ── Product Service ────────────────────────────────────────────
+  product-service:
+    build: ./product-service
+    container_name: product-service
+    ports:
+      - "8082:8082"
+    depends_on:
+      eurekaserver:
+        condition: service_started
+    networks:
+      - microservices-net
+    volumes:
+      - C:/Users/USER/Desktop/Logs:/logs   # ✅ single shared logs folder
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eurekaserver:8761/eureka/
+
+  # ── Order Service ──────────────────────────────────────────────
+  order-service:
+    build: ./order-service
+    container_name: order-service
+    ports:
+      - "8083:8083"
+    depends_on:
+      eurekaserver:
+        condition: service_started
+    networks:
+      - microservices-net
+    volumes:
+      - C:/Users/USER/Desktop/Logs:/logs   # ✅ single shared logs folder
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eurekaserver:8761/eureka/
+
+  # ── Elasticsearch ──────────────────────────────────────────────
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - cluster.routing.allocation.disk.threshold_enabled=false
+      - bootstrap.memory_lock=false
+    ports:
+      - "9200:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    networks:
+      - microservices-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200 || exit 1"]
+      interval: 30s
+      timeout: 15s
+      retries: 10
+      start_period: 60s
+
+  # ── Logstash ───────────────────────────────────────────────────
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.12.0
+    container_name: logstash
+    ports:
+      - "5044:5044"
+    volumes:
+      - ./elk/logstash/logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+      - ./elk/logstash/logstash.yml:/usr/share/logstash/config/logstash.yml
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - microservices-net
+
+  # ── Kibana ─────────────────────────────────────────────────────
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.12.0
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - microservices-net
+
+  # ── Filebeat ───────────────────────────────────────────────────
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.12.0
+    container_name: filebeat
+    user: root
+    command: filebeat -e --strict.perms=false
+    volumes:
+      - ./elk/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - C:/Users/USER/Desktop/Logs:/logs:ro        # ✅ user/product/order logs
+      - api-gateway-logs:/var/log/api-gateway:ro
+      - eurekaserver-logs:/var/log/eurekaserver:ro
+    depends_on:
+      - logstash
+    networks:
+      - microservices-net

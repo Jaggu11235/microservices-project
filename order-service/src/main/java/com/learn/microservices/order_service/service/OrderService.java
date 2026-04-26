@@ -6,6 +6,8 @@ import com.learn.microservices.order_service.dto.ProductResponse;
 import com.learn.microservices.order_service.dto.UserResponse;
 import com.learn.microservices.order_service.entity.Order;
 import com.learn.microservices.order_service.repository.OrderRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -17,6 +19,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final UserClient userClient;
     private final ProductClient productClient;
+    private static final Logger logger = LoggerFactory.getLogger(OrderService.class);
 
     public OrderService(OrderRepository orderRepository, UserClient userClient, ProductClient productClient) {
         this.orderRepository = orderRepository;
@@ -25,6 +28,7 @@ public class OrderService {
     }
 
     public Order placeOrder(Long userId, Long productId, Integer quantity) {
+        logger.info("Order creation started");
         UserResponse user = userClient.getUserById(userId);
         if(user == null) {
             throw new RuntimeException("User Not found");

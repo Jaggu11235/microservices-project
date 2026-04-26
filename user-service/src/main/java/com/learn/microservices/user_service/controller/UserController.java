@@ -29,4 +29,9 @@ public class UserController {
     public List<User> getAllUsers() {
         return userService.getAllUsers();
     }
+
+    @GetMapping("/number")
+    public int getNumber() {
+        return 3/0;
+    }
 }

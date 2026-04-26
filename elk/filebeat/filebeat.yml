@@ -1,0 +1,44 @@
+filebeat.inputs:
+
+  # ── User Service ──
+  - type: log
+    enabled: true
+    paths:
+      - /logs/User-Service.log
+    fields:
+      service: user-service
+
+  # ── Product Service ──
+  - type: log
+    enabled: true
+    paths:
+      - /logs/Product-Service.log
+    fields:
+      service: product-service
+
+  # ── Order Service ──
+  - type: log
+    enabled: true
+    paths:
+      - /logs/Order-Service.log
+    fields:
+      service: order-service
+
+  # ── API Gateway ──
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/api-gateway/*.log
+    fields:
+      service: api-gateway
+
+  # ── Eureka Server ──
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/eurekaserver/*.log
+    fields:
+      service: eurekaserver
+
+output.logstash:
+  hosts: ["logstash:5044"]
